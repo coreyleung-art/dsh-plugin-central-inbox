@@ -1,0 +1,5 @@
+# dsh-central-inbox · 黑板→中枢上下文插入桥（依赖 agent-bus）
+- insert:
+    - id: central-inbox
+      name: dsh-plugin-central-inbox
+      config: {}
