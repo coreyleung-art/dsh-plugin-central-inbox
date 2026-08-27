@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-central-inbox",
   "description": "黑板→中枢上下文插入桥：MBP/i9 消息自动注入中枢会话（等价 agent_send 跨设备版）",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "exports": {
