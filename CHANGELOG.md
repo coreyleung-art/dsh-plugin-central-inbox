@@ -1,5 +1,10 @@
 # Changelog · dsh-plugin-central-inbox
 
+## [0.1.2] - 2026-08-28
+
+### 修复
+- CENTRAL_AGENT 显式优先（修复注入目标解析）+ NODE_ID 默认 mbp
+
 ## [0.1.1] - 2026-08-28
 
 ### 修复：自注入循环 + 探针噪音
