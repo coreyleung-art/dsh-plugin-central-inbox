@@ -1,5 +1,10 @@
 # Changelog · dsh-plugin-central-inbox
 
+## [0.1.3] - 2026-08-29
+
+### 修复
+- SSE 订阅带 BLACKBOARD_TOKEN（P1-1c token 逐步启用前提）
+
 ## [0.1.2] - 2026-08-28
 
 ### 修复
