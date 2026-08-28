@@ -1,3 +1,7 @@
+## v0.1.6 (2026-08-29)
+- **修复（重启崩溃根因）**: package.json 缺 "type": "module"（index.js 用 ESM export 但按 CJS 解析 → 加载即 SyntaxError）+ 缺 peerDependencies（agentBus 依赖无法声明）+ lib/index.js 缺 import（join/homedir/fs 依赖 CJS 隐式全局 → ESM 下 ReferenceError）
+- **修复**: 补 node_modules 符号链接（cordis/dsh-tools → profile 解析链，同 agent-way）
+- **验证**: 沙箱 node v25 语法 OK + ESM 模块加载 OK（exports: name/inject/apply）+ cordis.patch.yml 完整
 # Changelog · dsh-plugin-central-inbox
 
 ## [0.1.5] - 2026-08-29

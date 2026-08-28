@@ -1,5 +1,6 @@
 {
   "description": "黑板→中枢上下文插入桥：MBP/i9 消息自动注入中枢会话（等价 agent_send 跨设备版）",
+  "type": "module",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -21,5 +22,9 @@
   "main": "lib/index.js",
   "name": "dsh-plugin-central-inbox",
   "types": "lib/index.d.ts",
-  "version": "0.1.5"
+  "version": "0.1.6",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"
+  }
 }
