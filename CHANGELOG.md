@@ -1,5 +1,10 @@
 # Changelog · dsh-plugin-central-inbox
 
+## [0.1.4] - 2026-08-29
+
+### 修复
+- 统一文件日志（插件化标准第7项：CLD stdout 不可见 → appendFileSync 落盘）
+
 ## [0.1.3] - 2026-08-29
 
 ### 修复
