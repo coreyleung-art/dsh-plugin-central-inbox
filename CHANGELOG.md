@@ -1,3 +1,6 @@
+## v0.1.7 (2026-08-29)
+- **修复**: NODE_ID 自动探测（hostname 含 mac-mini/mbp/i9），修复 mac-mini 漏配 DSH_NODE_ID 默认成 mbp 监听错通道（R004 教训：central-inbox 必须识别本节点）
+- **验证**: apply OK + restart-guard 0 FAIL
 ## v0.1.6 (2026-08-29)
 - **修复（重启崩溃根因）**: package.json 缺 "type": "module"（index.js 用 ESM export 但按 CJS 解析 → 加载即 SyntaxError）+ 缺 peerDependencies（agentBus 依赖无法声明）+ lib/index.js 缺 import（join/homedir/fs 依赖 CJS 隐式全局 → ESM 下 ReferenceError）
 - **修复**: 补 node_modules 符号链接（cordis/dsh-tools → profile 解析链，同 agent-way）

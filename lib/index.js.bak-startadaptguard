@@ -21,17 +21,7 @@ function logLine(msg) {
 }
 
 const SSE_URL = process.env.CENTRAL_INBOX_SSE || 'http://127.0.0.1:8803/events';
-// v0.1.7 修复：NODE_ID 自动探测（hostname 含 mac-mini/mbp/i9），避免 mac-mini 漏配 DSH_NODE_ID 默认成 mbp 监听错通道
-function detectNodeId() {
-  const env = process.env.DSH_NODE_ID;
-  if (env) return env;
-  const hostname = (process.env.HOSTNAME || process.env.COMPUTERNAME || '').toLowerCase();
-  if (hostname.includes('mac-mini')) return 'mac-mini';
-  if (hostname.includes('mbp') || hostname.includes('macbook')) return 'mbp';
-  if (hostname.includes('i9') || hostname.includes('desktop')) return 'i9';
-  return 'mbp'; // 兜底（原默认）
-}
-const NODE_ID = detectNodeId();
+const NODE_ID = process.env.DSH_NODE_ID || 'mbp';
 // 本节点监听自己的消息通道（notes/<node>/*）+ collab（全局协作）
 const WATCH_PREFIXES = ['notes/' + NODE_ID + '/', 'notes/collab/'];
 
@@ -39,6 +29,7 @@ export const name = 'central-inbox';
 export const inject = ['agentBus'];
 
 export function apply(ctx) {
+  startAdaptGuard(ctx, 'central-inbox');
   const agentBus = ctx.get('agentBus');
   if (!agentBus) { console.log('[central-inbox] agentBus 不可用，跳过'); return; }
 
