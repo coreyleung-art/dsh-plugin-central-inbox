@@ -56,8 +56,6 @@ const NODE_ID = detectNodeId();
 // 本节点监听自己的消息通道（notes/<node>/*）+ collab（全局协作）
 const WATCH_PREFIXES = ['notes/' + NODE_ID + '/', 'notes/collab/'];
 
-import { normalizeTo, resolveTargetId as _resolve, shouldInject as _should, remember as _remember } from './route.js';
-
 export const name = 'central-inbox';
 export const inject = ['agentBus'];
 
@@ -112,63 +110,43 @@ export function apply(ctx) {
   // 返回 { target: 会话id, mode: 'central'|'direct', reason?: string }
   //   central：to 缺失/符号中枢名/解析失败/命中即中枢 → 注入中枢（与现逻辑一致）
   //   direct ：to 唯一命中某非中枢在线会话 → 注入该会话
-  // 匹配优先级（v0.2.1 增补角色名映射，修 not-found 空转）：
-  //   角色名映射(~/.dsh/agent-role-map.json) > 精确 id > 唯一稳定片段 > 歧义/未命中 → 回退中枢
-  let _roleMapCache = null;
-  function roleMap() {
-    if (_roleMapCache) return _roleMapCache;
-    try {
-      const p = join(homedir(), '.dsh', 'agent-role-map.json');
-      if (fs.existsSync(p)) {
-        const d = JSON.parse(fs.readFileSync(p, 'utf8'));
-        _roleMapCache = d.main || {};
-        return _roleMapCache;
-      }
-    } catch (e) { /* 映射文件缺失 → 空表 */ }
-    _roleMapCache = {};
-    return _roleMapCache;
-  }
-  // ★ 2026-10-01：解析逻辑已抽到 lib/route.js（纯函数、可单测）。
-  //   本包装仅负责取 agentBus.list() 与角色表，行为变更见 route.js 注释：
-  //     · 不可解析的 to 不再静默回退注入中枢（原 L162 not-found）
-  //     · to 双侧对称归一化（剥括号/via/多收件人/短 id）
+  // 匹配优先级：精确 id > 唯一稳定片段（includes，如 'fa1f9150'）> 歧义/未命中 → 回退中枢
   function resolveTargetId(to, central) {
+    if (to === undefined || to === null) return { target: central, mode: 'central' };
+    const norm = String(to).trim();
+    // 星台现网写 value.to='coordinator'（符号中枢名）→ 中枢；顺带兼容 'central'
+    if (norm === '' || norm === 'coordinator' || norm === 'central') {
+      return { target: central, mode: 'central' };
+    }
     let ids = [];
     try {
       const agents = agentBus.list ? agentBus.list() : [];
       if (Array.isArray(agents)) ids = agents.map((a) => a && a.id).filter(Boolean);
-    } catch (e) { /* agentBus.list 不可用 → ids 空 */ }
-    return _resolve(to, { ids, central, roleMap: roleMap() });
+    } catch (e) { /* agentBus.list 不可用 → ids 空 → 回退中枢 */ }
+    if (ids.length === 0) return { target: central, mode: 'central', reason: 'agentBus.list-empty' };
+    // 1) 精确 id 匹配
+    const exact = ids.find((id) => id === norm);
+    if (exact) return { target: exact, mode: exact === central ? 'central' : 'direct' };
+    // 2) 唯一稳定片段匹配（agent 会话重启 id 会变，星桥/老登等用稳定段寻址）
+    const frags = ids.filter((id) => id.includes(norm));
+    if (frags.length === 1) {
+      return { target: frags[0], mode: frags[0] === central ? 'central' : 'direct' };
+    }
+    if (frags.length > 1) {
+      return { target: central, mode: 'central', reason: 'ambiguous-fragment(' + frags.length + ')' };
+    }
+    // 3) 未命中本机在线会话（不存在或离线）→ 回退中枢，由协调者决定是否转发
+    return { target: central, mode: 'central', reason: 'not-found' };
   }
-  const _seen = new Set();   // ★ 修缺陷1：单槽 lastInjected → <key>@<version> 成员集合（有界）
-  // ★ v0.2.8 幂等键持久化（业界「去重存储持久化」补项）：重启后 seen 不丢，防重投/重放重复注入
-  const SEEN_FILE = os.homedir() + '/.dsh/central-inbox-seen.json';
-  try {
-    const _saved = JSON.parse(fs.readFileSync(SEEN_FILE, 'utf8'));
-    if (Array.isArray(_saved)) for (const k of _saved.slice(-2000)) if (typeof k === 'string') _seen.add(k);
-  } catch (_) { /* 首次运行 */ }
-  let _seenDirty = false;
-  function _flushSeen() {
-    if (!_seenDirty) return;
-    _seenDirty = false;
-    try { fs.writeFileSync(SEEN_FILE, JSON.stringify([..._seen].slice(-2000))); } catch (_) { /* 落盘失败不阻断 */ }
-  }
-  ctx.effect(() => () => _flushSeen());
+
+  let lastInjected = '';
   let reconnectMs = 3000;
-  // ★ v0.2.6 变更3：跟踪 SSE 事件 id，重连时带 Last-Event-ID 请求服务器重放漏事件
-  let lastEventId = '';
-  // ★ v0.2.8：seen 防抖落盘（30s）
-  setInterval(_flushSeen, 30000).unref?.();
 
   async function connect() {
     try {
       // P1-1c: 黑板 token（BLACKBOARD_TOKEN 环境变量，空=不带头）
       const token = process.env.BLACKBOARD_TOKEN || '';
-      const headers = {};
-      if (token) headers['X-Blackboard-Token'] = token;
-      // ★ v0.2.6：重连带 Last-Event-ID（服务器 sse.rs v0.6.9 起支持有界重放）
-      if (lastEventId) headers['Last-Event-ID'] = lastEventId;
-      const res = await fetch(SSE_URL, Object.keys(headers).length ? { headers } : undefined); // 无 signal：SSE 无限流不需要超时
+      const res = await fetch(SSE_URL, token ? { headers: { 'X-Blackboard-Token': token } } : undefined); // 无 signal：SSE 无限流不需要超时
       if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
       logLine('[central-inbox] SSE 已连接 ' + SSE_URL);
       reconnectMs = 3000;
@@ -195,7 +173,6 @@ export function apply(ctx) {
           const chunk = buf.slice(0, idx);
           buf = buf.slice(idx + 2);
           for (const line of chunk.split('\n')) {
-            if (line.startsWith('id: ')) { lastEventId = line.slice(4).trim(); continue; }
             if (!line.startsWith('data: ')) continue;
             try { handleEvent(JSON.parse(line.slice(6))); } catch { /* 忽略坏事件 */ }
           }
@@ -219,54 +196,24 @@ export function apply(ctx) {
     if (!centralAgent) centralAgent = findCentralAgent();
     if (!centralAgent) return;
     const key = d.key;
-    // ★ 2026-10-01：前缀 / 自回声 / 去重三段统一由 route.js 判定（可单测）
-    const _verdict = _should(d, { prefixes: WATCH_PREFIXES, nodeId: NODE_ID,
-      ownSession: centralAgent, seen: _seen });
-    if (!_verdict.inject) return;
-    _remember(_seen, _verdict.dedupKey);
-    _seenDirty = true; // ★ v0.2.8：新增即标脏（节流由下方防抖控制）
-    const value = _verdict.value;
-    void key;
+    if (!WATCH_PREFIXES.some((p) => key.startsWith(p))) return;
+    const value = d.value || {};
+    if (value.from === NODE_ID) return; // 本节点自写的消息不注入回本会话（防自回声，2026-08-28）
+    if (value.from === 'coordinator' && NODE_ID === 'mac-mini') return; // 中枢不自注入
+    if (key === lastInjected) return;
+    lastInjected = key;
 
     const from = value.from || 'node';
-    // ★ v0.2.5b（MBP 六节 2026-10-03）：from 缺失的卡照样被注入且绕过自回声（不可归属）。
-    //   显式处置=标注告警留痕（不静默丢弃——历史卡片可能存在缺 from 约定）：
-    //   任何能写黑板的人省略 from 就能投不可归属消息，故至少必须留痕可审计。
-    if (!value.from) {
-      logLine('[central-inbox] ⚠️ 缺 from 卡注入（不可归属）: ' + key + ' → ' + target);
-    }
     const text = '看黑板 ' + key;
 
     // ---- v0.2.0：定向注入解析（to 命中本机在线非中枢会话 → 注入该会话；否则中枢）----
     const { target, mode, reason } = resolveTargetId(value.to, centralAgent);
-    // ★ v0.2.5 修复（MBP 验收补遗 2026-10-03）：原判据 mode==='central' 当「未命中」代理——
-    //   但 mode==='central' 两种语义：①显式中枢别名/精确命中中枢（成功）②真未命中回退。
-    //   route.js:39 精确命中中枢时 reason='exact'（成功），却被打上「未命中→回退」告警，
-    //   日志自相矛盾（「未命中（exact）」），MBP 实测被其误导去怀疑回退逻辑仍在。
-    //   修法：告警只对「未命中类」reason 触发（unresolvable / agentBus.list-empty /
-    //   role-mapped-offline / ambiguous-fragment），排除 exact/central-alias/role-mapped/fragment。
-    const _missReason = String(reason || '');
-    const _isMiss = _missReason === 'agentBus.list-empty' || _missReason === 'role-mapped-offline'
-      || _missReason.startsWith('unresolvable') || _missReason.startsWith('ambiguous-fragment');
-    if (_isMiss) {
+    if (mode === 'central' && reason && value.to !== undefined && value.to !== null && String(value.to).trim() !== '' && String(value.to).trim() !== 'coordinator') {
       // 显式 to 但未命中本机在线会话 → 记录告警（仍回退中枢，语义不变）
       logLine('[central-inbox] ⚠️ to=' + String(value.to) + ' 未命中本机在线会话（' + (reason || 'unknown') + '）→ 回退注入中枢 ' + centralAgent);
     }
-    // ★ v0.2.7（MBP 积压实测 2026-10-03）：注入目标 null（boot 时 centralAgent 未就绪等）
-    //   ⇒ 原实现静默 queued 无报警（与「假 delivered」同族：失败无归属）。
-    //   改为显式告警留痕 + 跳过注入（fail-visible；centralAgent 就绪后新卡正常）。
-    if (!target) {
-      logLine('[central-inbox] ⚠️ 注入目标为 null，跳过（centralAgent 未就绪?）: ' + key + ' → ' + (centralAgent || '(无 CENTRAL_AGENT)'));
-      return;
-    }
     try {
-      // ★ I7a（2026-10-02）：卡片 value.reply_required=true → 注入时要求唤醒（跨设备回执约定）
-      // ★ 方案 A（2026-10-03）：唤醒语义反转配套——卡片显式 notify_only=true 才不唤醒；
-      //   否则默认唤醒（reply_required 保留为「更强提示」语义）
-      const r = agentBus.send(from, target, text, undefined, {
-        replyRequired: value.reply_required === true,
-        notifyOnly: value.notify_only === true,
-      });
+      const r = agentBus.send(from, target, text, undefined);
       const via = (mode === 'direct') ? 'direct' : 'central';
       logLine('[central-inbox] 📩 注入 ' + NODE_ID + ': ' + key + ' → ' + target + ' [' + via + '] ' + (r && r.status));
     } catch (e) {

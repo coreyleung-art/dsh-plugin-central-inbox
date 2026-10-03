@@ -1,3 +1,40 @@
+## v0.2.5 (2026-10-03)
+- **告警语义修复（MBP 验收补遗）**: `index.js` 原用 `mode==='central'` 当「未命中」代理判据，
+  但该 mode 含两种语义（显式中枢别名/精确命中中枢=成功，与真未命中回退混淆）⇒ 精确命中中枢时
+  日志打出「未命中（exact）→回退」自相矛盾告警（MBP 实测被误导去怀疑回退逻辑仍在）。
+  修法：告警只对未命中类 reason 触发（unresolvable/agentBus.list-empty/role-mapped-offline/
+  ambiguous-fragment），排除 exact/central-alias/role-mapped/fragment。
+
+## v0.2.4 (2026-10-03)
+- **审计修复 D1（自检空转）**: `lib/selfcheck.js` 的 peerDeps 探测与符号检查在 ESM 下是死码
+  （`typeof require === 'function'` / `typeof __filename !== 'undefined'` 恒为 undefined ⇒ 两段全跳过
+  ⇒ 空集通过打印 ✅，与 agent-way 同坑同修复）。改用 `createRequire(import.meta.url)` +
+  `fileURLToPath(import.meta.url)`（镜像 agent-way selfcheck 已修方案）。
+- **审计修复 D3（去重键「去 version」名存实亡）**: `lib/route.js` 的指纹此前仍
+  `JSON.stringify(value)` ⇒ `value.version` 参与指纹 ⇒ 同内容重建卡片仍被当新卡注入。
+  现真正剔除 `value.version` 再算指纹；删除死变量 `ver`。selftest 补真实变版用例
+  （`value.version` 1→2 而去重键相同——旧用例 version 恒同为 1 才侥幸绿，测错了对象）。
+
+## v0.2.3 (2026-10-02)
+- **去重键改版（MBP 建议）**: `<key>#<内容指纹>`（去 version）——重建卡片（内容同、version 变）
+  不再重复注入；内容变 ⇒ 新键照常注入。
+- **依赖**: agent-way 1.5.7。
+
+## v0.2.2 (2026-10-02)
+- **I7a 透传**: 卡片 `value.reply_required === true` ⇒ 注入 `agentBus.send(..., { replyRequired: true })`
+  （配合 agent-way 1.5.7：要求回复的卡在收件方空闲时也触发唤醒，不再排队等自然回合）。
+- **依赖**: agent-way 1.5.7。
+
+## v0.2.1 (2026-10-01)
+- **修复（治理缺口）**: `lib/selftest.js` 补 **CLI 入口**。此前该模块**只导出 `runSelftest`、无 CLI 入口**
+  ⇒ `node lib/selftest.js` **静默退出 0、零输出**，外观与「15 条全过」完全无异。
+  这是「空集通过」坑的又一实例（本次实测踩中：一句「自检通过」的报告其实什么都没跑）。
+  同步修正 `package.json` 中 `r006.cli_form: true` —— 该自报值此前**与事实不符**，现已成立并附证据字段。
+- **验证**: `node lib/selftest.js` → **15 PASS / 0 FAIL**，exit 0（可直接运行，不再需 import 调用）。
+- **兼容性**: 本插件 `lib/route.js` 的 `normalizeTo` 为**共享模块 `~/dsh-comm-shared/identity.js` 的再导出**
+  （实测 `route.normalizeTo === shared.normalizeTo` 为 `true`）。共享模块 2026-10-01 的 A4a 修复
+  （括号内 id 抢救）经**真实语料差分**验证：221 个真实 `to` 值中 218 个输出不变，3 个变化全为修复目标；
+  本插件 15 条断言在该改动后**全绿**（消费者无破坏）。
 ## v0.1.7 (2026-08-29)
 - **修复**: NODE_ID 自动探测（hostname 含 mac-mini/mbp/i9），修复 mac-mini 漏配 DSH_NODE_ID 默认成 mbp 监听错通道（R004 教训：central-inbox 必须识别本节点）
 - **验证**: apply OK + restart-guard 0 FAIL

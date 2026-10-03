@@ -22,9 +22,17 @@
   "main": "lib/index.js",
   "name": "dsh-plugin-central-inbox",
   "types": "lib/index.d.ts",
-  "version": "0.1.6",
+  "version": "0.2.8",
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"
+  },
+  "r006": {
+    "status": "enforced",
+    "cli_form": true,
+    "cli_form_evidence": "node lib/selftest.js —— 2026-10-01 补入口后成立；此前只导出 runSelftest 无 CLI 入口，直接运行会静默退出 0、零输出（自报值与事实不符，已修）",
+    "real_mount_smoke": true,
+    "documented": "README.md",
+    "lean4_gate": "lib/route.js 纯逻辑 + lib/selftest.js 15 条行为断言；preflight: plugin-preflight.py"
   }
 }
