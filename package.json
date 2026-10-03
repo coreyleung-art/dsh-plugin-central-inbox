@@ -22,7 +22,7 @@
   "main": "lib/index.js",
   "name": "dsh-plugin-central-inbox",
   "types": "lib/index.d.ts",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-tools": "^0.1.0-rc.6"

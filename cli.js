@@ -9,9 +9,13 @@ if (args.length === 0 || args.includes('--help')) {
 }
 if (args.includes('--tool-version')) { console.log(pkg.version); process.exit(0); }
 if (args.includes('--selfcheck')) {
+  // 0.2.9：先跑行为断言套件，再跑自检门（含真挂载冒烟——os 裸引用事故类只有 apply 冒烟拦得住）
   const { spawnSync } = await import('node:child_process');
   const r = spawnSync('/opt/homebrew/bin/node', [new URL('./lib/selftest.js', import.meta.url).pathname], { stdio: 'inherit' });
-  process.exit(r.status ?? 1);
+  if (r.status !== 0) process.exit(r.status ?? 1);
+  const { runSelfCheck } = await import('./lib/selfcheck.js');
+  const g = await runSelfCheck();
+  process.exit(g.ok ? 0 : 1);
 }
 console.error('用法错误: 未知旗标 ' + args.join(' '));
 process.exit(2);
