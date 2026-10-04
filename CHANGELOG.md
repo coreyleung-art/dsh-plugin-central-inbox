@@ -53,6 +53,12 @@
 - **验证**: 沙箱 node v25 语法 OK + ESM 模块加载 OK（exports: name/inject/apply）+ cordis.patch.yml 完整
 # Changelog
 
+## [0.2.14] - 2026-10-04
+
+- **cardAgeMs ISO 字符串三态解析（MBP S6 沙箱 82.1% 根因）**：原实现 `Number(card[f])` 遇 ISO 字符串
+  （如 "2026-09-08T23:53:43Z"）⇒ NaN ⇒ 卡内时间被静默跳过 ⇒ 回落到被重建刷新的外层 ts ⇒ 真实风暴放行。
+  修法（MBP 验证）：数值 / 纯数字串（10-13 位）/ ISO 串（Date.parse）三态；S6 反例实测 603h 被拦、新鲜卡 60s 放行。
+
 ## [0.2.13] - 2026-10-04
 
 - **注入目标会话自动续活（用户问「reload 后会话不自动续活」+ DSH 会话机制调研）**：
