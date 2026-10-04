@@ -53,6 +53,18 @@
 - **验证**: 沙箱 node v25 语法 OK + ESM 模块加载 OK（exports: name/inject/apply）+ cordis.patch.yml 完整
 # Changelog
 
+## [0.2.13] - 2026-10-04
+
+- **注入目标会话自动续活（用户问「reload 后会话不自动续活」+ DSH 会话机制调研）**：
+  DSH 官方有完整 resume 机制（`dsh-agent` agents.resume / `dsh-session-query` listSessions），
+  但没有任何 boot 编排自动调用 ⇒ reload/重启后注入目标会话离线，消息只能等用户手动点开会话。
+  本版补窄版自动续活：只 resume 本插件注入目标（单一会话，非批量——避开 autoWake 反风暴教训）；
+  配方与 agent-way deliverWake 同源（agentOptions 非空取 agentDefaultModel/settings +
+  setup 挂 agentPresets.mount，CLD-013 两关键修复）。
+- **flushPending 判据收窄**：原「bus 有任意在线会话即 flush」→「目标会话在线才 flush」，
+  防止向离线目标 flush 产生 queued 终态（R042 语义对齐）。
+- 有界重试：8s 首试 + 5s 周期内联重试 ≤10 次；目标在线后计数归零。
+
 ## [0.2.12] - 2026-10-04
 
 - **R43 三级时间源（A④ 反例修复）**：时效门从「只看事件外层 ts」改为 ①卡内 sent_at_epoch_ms/ts（秒毫秒都认）②键内嵌 epoch ③外层 ts 兜底；算不出时间不丢（MBP 真实回放：单层判据对 106 条风暴拦截率 0%——重建卡板时间被刷新）。
