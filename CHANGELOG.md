@@ -2,6 +2,15 @@
 - **告警语义修复（MBP 验收补遗）**: `index.js` 原用 `mode==='central'` 当「未命中」代理判据，
   但该 mode 含两种语义（显式中枢别名/精确命中中枢=成功，与真未命中回退混淆）⇒ 精确命中中枢时
   日志打出「未命中（exact）→回退」自相矛盾告警（MBP 实测被误导去怀疑回退逻辑仍在）。
+## [0.2.11] - 2026-10-04
+
+> 主题：**A 批次 · 通讯链路收敛**（MBP 实测缺陷驱动，三项+时效门）。
+
+- **seen 后置（A①）**：去重键写入移到成功注入之后——注入失败（目标 null/centralAgent 未就绪）不再写 seen，重放/重连事件可重试（MBP 实测 10 条 null 跳过中 1 条即其卡，失败即记号永不重试）。
+- **own-node 别名解析（A②）**：`to=mac-mini/macmini/<NODE_ID>` → 中枢（MBP 三卡 to=mac-mini 曾被 null 吞；与 comm-preflight B7 可解析性语义对齐）。
+- **角色离线排队（A③）**：role-mapped-offline 不再丢卡——排完整 id 待会话上线自动投递（mode=queued-direct），告警降级为 ℹ️。
+- **R43 重放时效门（A④）**：重放事件超过 24h 跳过（不注入不写 seen），防「106 条/34 天旧卡一次灌入」；env CENTRAL_INBOX_MAX_REPLAY_AGE_MS 可调。
+- **验证**：selftest 18/18（新增 A②/A③ 两用例：别名→中枢、离线→完整 id）；selfcheck 全绿；冒烟深路径 pass。
   修法：告警只对未命中类 reason 触发（unresolvable/agentBus.list-empty/role-mapped-offline/
   ambiguous-fragment），排除 exact/central-alias/role-mapped/fragment。
 
