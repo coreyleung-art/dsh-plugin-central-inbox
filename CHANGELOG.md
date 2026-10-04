@@ -51,7 +51,15 @@
 - **修复（重启崩溃根因）**: package.json 缺 "type": "module"（index.js 用 ESM export 但按 CJS 解析 → 加载即 SyntaxError）+ 缺 peerDependencies（agentBus 依赖无法声明）+ lib/index.js 缺 import（join/homedir/fs 依赖 CJS 隐式全局 → ESM 下 ReferenceError）
 - **修复**: 补 node_modules 符号链接（cordis/dsh-tools → profile 解析链，同 agent-way）
 - **验证**: 沙箱 node v25 语法 OK + ESM 模块加载 OK（exports: name/inject/apply）+ cordis.patch.yml 完整
-# Changelog · dsh-plugin-central-inbox
+# Changelog
+
+## [0.2.12] - 2026-10-04
+
+- **R43 三级时间源（A④ 反例修复）**：时效门从「只看事件外层 ts」改为 ①卡内 sent_at_epoch_ms/ts（秒毫秒都认）②键内嵌 epoch ③外层 ts 兜底；算不出时间不丢（MBP 真实回放：单层判据对 106 条风暴拦截率 0%——重建卡板时间被刷新）。
+- **G30 缓冲重放**：boot 窗口 centralAgent 未就绪/目标 null 的事件入有界缓冲（≤50/30min TTL），5s 周期在 bus 就绪后主动重放——seen 后置只把「不可能重试」变「可能重试」，本版补上「触发重试的东西」。
+- 同内容重投判 dup 的约束：补投/重投必须改内容（去重键=内容指纹，剔除 version）。
+
+## [0.2.11] - 2026-10-04 · dsh-plugin-central-inbox
 
 ## [0.1.5] - 2026-08-29
 
